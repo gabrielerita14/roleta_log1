@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Roleta Logarítmica Completa</title>
+<style>
+body { font-family: Arial, sans-serif; background:#f5f7fa; margin:0; padding:20px; display:flex; flex-direction:column; align-items:center;}
+h1 { color:#222; }
+.game-container { display:flex; gap:30px; margin-top:20px;}
+.wheel-container { position:relative; }
+canvas { border-radius:50%; box-shadow:0 8px 20px rgba(0,0,0,0.2); }
+.panel { background:#fff; padding:16px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:12px; text-align:center; }
+button { background:#2563eb; color:#fff; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; margin:4px; font-weight:bold; }
+button:hover { background:#1d4ed8; }
+.secondary { background:#e5e7eb; color:#111; }
+.timer { font-size:18px; font-weight:bold; color:#d97706; }
+.scoreboard div { margin:4px 0; }
+</style>
+</head>
+<body>
+
+<h1>🎡 Roleta Logarítmica</h1>
+
+<div class="panel" id="levelSelect">
+<h3>Escolha o Nível Inicial</h3>
+<button onclick="startGame('facil')">Fácil</button>
+<button onclick="startGame('medio')">Médio</button>
+<button onclick="startGame('dificil')">Difícil</button>
+</div>
+
+<div class="game-container" id="gameArea" style="display:none;">
+  <div class="wheel-container">
+    <canvas id="wheel" width="400" height="400"></canvas>
+    <button id="spin">Girar Roleta</button>
+  </div>
+
+  <div style="max-width:400px;">
+    <div class="panel">
+      <div id="levelInfo">Nível: 1 | Rodada: 1/3</div>
+      <div id="playerTurn">Vez do Jogador 1</div>
+      <div class="timer">⏱️ Tempo: <span id="time">30</span>s</div>
+    </div>
+    <div class="panel">
+      <div id="question">Gire a roleta para começar.</div>
+      <div id="hint"></div>
+      <input type="text" id="answer" placeholder="Digite sua resposta..." style="width:100%;padding:8px;margin-top:8px">
+      <button id="check">Responder</button>
+      <button id="hintBtn" class="secondary">Pedir Dica</button>
+    </div>
+    <div class="panel scoreboard">
+      <div>👤 Jogador 1 → Pontos: <span id="p1">0</span> | Erros: <span id="e1">0</span></div>
+      <div>👤 Jogador 2 → Pontos: <span id="p2">0</span> | Erros: <span id="e2">0</span></div>
+    </div>
+    <div class="panel" id="ranking" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('wheel');
+const ctx=canvas.getContext('2d');
+const size=canvas.width;
+
+const categories=[
+{color:'#2563eb', label:'Reconhecimento'},
+{color:'#22c55e', label:'Propriedades'},
+{color:'#facc15', label:'Equações'},
+{color:'#ef4444', label:'Aplicações'}
+];
+
+const questionsByLevel={
+facil:{
+'Reconhecimento':[
+{q:'Qual é o log₂(8)?', a:'3', hints:['2³=8']},
+{q:'Qual é o log₁₀(100)?', a:'2', hints:['10²=100']},
+{q:'Identifique base e logaritmando em log₃(9).', a:'base=3, logaritmando=9', hints:['3²=9']}] ,
+
+'Propriedades':[
+{q:'Simplifique log₂(4)+log₂(2).', a:'3', hints:['2+1=3']},
+{q:'Escreva log₃(9/3).', a:'1', hints:['log₃9-log₃3=1']},
+{q:'Simplifique log₅(25).', a:'2', hints:['5²=25']}] ,
+
+'Equações':[
+{q:'Resolva log₂(x)=3.', a:'8', hints:['2³=8']},
+{q:'Resolva log₃(x)=2.', a:'9', hints:['3²=9']},
+{q:'Resolva log₄(x)=2.', a:'16', hints:['4²=16']}] ,
+
+'Aplicações':[
+{q:'Base da escala Richter?', a:'10', hints:['Log decimal']},
+{q:'Base do pH?', a:'10', hints:['Log decimal']},
+{q:'Se log₁₀1000=?', a:'3', hints:['10³=1000']}] 
+},
+medio:{
+'Reconhecimento':[
+{q:'Qual é o log₂(16)?', a:'4', hints:['2⁴=16']},
+{q:'Qual é o log₃(27)?', a:'3', hints:['3³=27']},
+{q:'Identifique base e logaritmando em log₅(25).', a:'base=5, logaritmando=25', hints:['5²=25']}] ,
+
+'Propriedades':[
+{q:'Simplifique log₂(8)-log₂(2).', a:'2', hints:['3-1=2']},
+{q:'Simplifique log₃(81)-log₃(3).', a:'3', hints:['4-1=3']},
+{q:'Escreva log₅(125/5).', a:'2', hints:['log₅125-log₅5=2']}] ,
+
+'Equações':[
+{q:'Resolva log₂(x)=5.', a:'32', hints:['2⁵=32']},
+{q:'Resolva log₃(x)=4.', a:'81', hints:['3⁴=81']},
+{q:'Resolva log₅(x)=3.', a:'125', hints:['5³=125']}] ,
+
+'Aplicações':[
+{q:'O pH é definido como -log[H⁺]. Qual a base?', a:'10', hints:['Log decimal']},
+{q:'Escala Richter usa log decimal. Qual a base?', a:'10', hints:['Base=10']},
+{q:'Se log₁₀10000=?', a:'4', hints:['10⁴=10000']}] 
+},
+dificil:{
+'Reconhecimento':[
+{q:'Qual é o log₂(64)?', a:'6', hints:['2⁶=64']},
+{q:'Qual é o log₃(81)?', a:'4', hints:['3⁴=81']},
+{q:'Identifique base e logaritmando em log₇(49).', a:'base=7, logaritmando=49', hints:['7²=49']}] ,
+
+'Propriedades':[
+{q:'Simplifique log₂(32)-log₂(8).', a:'2', hints:['5-3=2']},
+{q:'Simplifique log₃(243)-log₃(9).', a:'3', hints:['5-2=3']},
+{q:'Escreva log₅(625/25).', a:'2', hints:['4-2=2']}] ,
+
+'Equações':[
+{q:'Resolva log₂(x)=6.', a:'64', hints:['2⁶=64']},
+{q:'Resolva log₃(x)=5.', a:'243', hints:['3⁵=243']},
+{q:'Resolva log₅(x)=4.', a:'625', hints:['5⁴=625']}] ,
+
+'Aplicações':[
+{q:'O pH é -log[H⁺] para concentração 0,001. Qual o pH?', a:'3', hints:['-log₁₀0,001=3']},
+{q:'Escala Richter: Um terremoto de 1000 vezes mais forte que 1.0. Qual o aumento?', a:'3', hints:['log₁₀1000=3']},
+{q:'Se log₁₀100000=?', a:'6', hints:['10⁶=1000000']}] 
+}
+};
+
+let angle=0, spinning=false, currentPlayer=1, currentLevelChoice=null;
+let timer, timeLeft=30, currentQ=null, currentHints=0;
+let p1=0,e1=0,p2=0,e2=0;
+let rodada=1, maxRodadas=3;
+
+function drawWheel(){
+  const arc=2*Math.PI/categories.length;
+  for(let i=0;i<categories.length;i++){
+    const a=i*arc;
+    ctx.beginPath();
+    ctx.moveTo(size/2,size/2);
+    ctx.arc(size/2,size/2,size/2,a,a+arc);
+    ctx.closePath();
+    ctx.fillStyle=categories[i].color;
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(size/2,size/2);
+    ctx.rotate(a+arc/2);
+    ctx.textAlign='center';
+    ctx.fillStyle='#fff';
+    ctx.font='bold 18px Arial';
+    ctx.fillText(categories[i].label, size/4, 0);
+    ctx.restore();
+  }
+}
+drawWheel();
+
+function startGame(level){
+  currentLevelChoice=level;
+  document.getElementById('levelSelect').style.display='none';
+  document.getElementById('gameArea').style.display='flex';
+  updateUI();
+  alert(`🎮 Nível ${level.toUpperCase()} selecionado!`);
+}
+
+function spin(){
+  if(spinning) return;
+  spinning=true;
+  let spinAngle=Math.random()*360+720;
+  let duration=3000, start=null;
+
+  function animate(t){
+    if(!start) start=t;
+    let progress=(t-start)/duration; if(progress>1) progress=1;
+    let eased=1-Math.pow(1-progress,3);
+    angle=spinAngle*eased;
+    drawWheelRotated(angle);
+    if(progress<1) requestAnimationFrame(animate);
+    else { spinning=false; pickCategory(); }
+  }
+  requestAnimationFrame(animate);
+}
+
+function drawWheelRotated(rotAngle){
+    ctx.clearRect(0,0,size,size);
+    const arc = 2 * Math.PI / categories.length;
+    const adjusted = (rotAngle + 180) % 360; 
+    const stopIndex = Math.floor(adjusted / (360 / categories.length)); 
+
+    for(let i=0;i<categories.length;i++){
+        const a = i*arc;
+        ctx.beginPath();
+        ctx.moveTo(size/2,size/2);
+        ctx.arc(size/2,size/2,size/2,a,a+arc);
+        ctx.closePath();
+        ctx.fillStyle = categories[i].color;
+        ctx.fill();
+
+        // Destacar fatia selecionada
+        if(i === stopIndex){
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.translate(size/2,size/2);
+        ctx.rotate(a+arc/2);
+        ctx.textAlign='center';
+        ctx.fillStyle='#fff';
+        ctx.font='bold 18px Arial';
+        ctx.fillText(categories[i].label, size/4, 0);
+        ctx.restore();
+    }
+}
+
+function pickCategory(){
+  const arc=360/categories.length;
+  const adjusted=(angle+180)%360;
+  const index=Math.floor(adjusted/arc);
+  const cat=categories[index].label;
+  const questions=questionsByLevel[currentLevelChoice][cat];
+  if(questions.length===0){ alert("Sem mais perguntas nesta categoria!"); return; }
+  const qIndex=Math.floor(Math.random()*questions.length);
+  currentQ=questions.splice(qIndex,1)[0];
+  currentHints=0;
+  document.getElementById('question').textContent=`Categoria: ${cat} → ${currentQ.q}`;
+  document.getElementById('hint').textContent='';
+  startTimer();
+}
+
+function startTimer(){ clearInterval(timer); timeLeft=30; document.getElementById('time').textContent=timeLeft;
+  timer=setInterval(()=>{ timeLeft--; document.getElementById('time').textContent=timeLeft; if(timeLeft<=0){ clearInterval(timer); wrong(); } },1000);
+}
+
+function check(){ 
+  if(!currentQ) return; 
+  let ans=document.getElementById('answer').value.trim().toLowerCase().replace(/\s+/g,''); 
+  let correct=currentQ.a.toLowerCase().replace(/\s+/g,''); 
+  if(ans===correct){ 
+    alert('✅ Parabéns Jogador '+currentPlayer+'!'); 
+    if(currentPlayer===1){p1++; document.getElementById('p1').textContent=p1;} 
+    else{p2++; document.getElementById('p2').textContent=p2;} 
+  } else wrong(); 
+  nextTurn(); 
+}
+
+function wrong(){ alert('❌ Erro do Jogador '+currentPlayer); if(currentPlayer===1){e1++;document.getElementById('e1').textContent=e1;} else{e2++; document.getElementById('e2').textContent=e2;} }
+
+function nextTurn(){ clearInterval(timer); if(rodada<maxRodadas){ rodada++; } else { endGame(); return; } currentPlayer=currentPlayer===1?2:1; updateUI(); }
+
+function updateUI(){ document.getElementById('playerTurn').textContent='Vez do Jogador '+currentPlayer; document.getElementById('answer').value=''; document.getElementById('question').textContent='Gire a roleta para nova questão.'; document.getElementById('hint').textContent=''; document.getElementById('levelInfo').textContent=`Nível: ${currentLevelChoice.toUpperCase()} | Rodada: ${rodada}/${maxRodadas}`; }
+
+function giveHint(){ if(!currentQ) return; if(currentHints<currentQ.hints.length){ document.getElementById('hint').textContent=currentQ.hints[currentHints]; currentHints++; } else alert('Sem mais dicas!'); }
+
+function endGame(){ document.getElementById('ranking').style.display='block'; document.getElementById('ranking').innerHTML=`<h3>🏆 Ranking Final</h3>Jogador 1 → ${p1} acertos, ${e1} erros<br>Jogador 2 → ${p2} acertos, ${e2} erros`; }
+
+document.getElementById('spin').onclick=spin;
+document.getElementById('check').onclick=check;
+document.getElementById('hintBtn').onclick=giveHint;
+</script>
+</body>
+</html>
